@@ -54,6 +54,11 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 40,
   },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 16,
+  },
 });
 
 export default styles;

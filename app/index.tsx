@@ -1,22 +1,22 @@
-import React, { useState, useRef, useEffect } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-} from "react-native";
+import Entypo from "@expo/vector-icons/Entypo";
+import Slider from "@react-native-community/slider";
 import {
   AudioPlayer,
   setAudioModeAsync,
   useAudioPlayer,
   useAudioPlayerStatus,
 } from "expo-audio";
-import Slider from "@react-native-community/slider";
+import * as SecureStore from 'expo-secure-store';
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Entypo from "@expo/vector-icons/Entypo";
 import styles from "./styles";
-import FavoriteModal from "./favorite_modal";
 
 type audio = { name: string; path: any };
 
@@ -40,6 +40,34 @@ function NoisePlayer({
   const player = useAudioPlayer(audioSource.path);
   const status = useAudioPlayerStatus(player);
   const [sliderVolume, setSliderVolume] = useState(1);
+
+  // Load saved volume on mount
+  useEffect(() => {
+    const loadVolume = async () => {
+      try {
+        const savedVolume = await SecureStore.getItemAsync(`volume_${audioSource.name}`);
+        if (savedVolume !== null) {
+          const volume = parseFloat(savedVolume);
+          setSliderVolume(volume);
+          player.volume = volume;
+        }
+      } catch (error) {
+        console.error('Error loading volume:', error);
+      }
+    };
+    loadVolume();
+  }, []);
+
+  // Save volume whenever it changes
+  const handleVolumeChange = async (value: number) => {
+    setSliderVolume(value);
+    player.volume = value;
+    try {
+      await SecureStore.setItemAsync(`volume_${audioSource.name}`, value.toString());
+    } catch (error) {
+      console.error('Error saving volume:', error);
+    }
+  };
 
   // Register the player when it starts playing
   const handlePlay = () => {
@@ -75,10 +103,7 @@ function NoisePlayer({
         minimumValue={0}
         maximumValue={1}
         value={sliderVolume}
-        onValueChange={(value) => {
-          setSliderVolume(value);
-          player.volume = value;
-        }}
+        onValueChange={handleVolumeChange}
       />
     </View>
   );
@@ -87,10 +112,6 @@ function NoisePlayer({
 export default function App(): React.JSX.Element {
   const [time, setTime] = useState(1);
   const [inputValue, setInputValue] = useState("1"); // Input value as a string
-  const [favorites, setFavorites] = useState<
-    { name: string; sounds: { name: string; volume: number }[] }[]
-  >([]); // State for favorites
-  const [modalVisible, setModalVisible] = useState(false); // Modal visibility
   const playersRef = useRef<{ player: AudioPlayer; name: string }[]>([]); // Reference to track all active players and their names
 
   const handleTimeChange = (text: string) => {
@@ -116,21 +137,6 @@ export default function App(): React.JSX.Element {
     playersRef.current = []; // Clear the list after `stopping all players
   };
 
-  const saveFavorite = (name: string) => {
-    // Get all currently playing players
-    const currentlyPlaying = playersRef.current.filter(
-      ({ player }) => player.playing
-    );
-    const newFavorite = {
-      name,
-      sounds: currentlyPlaying.map(({ player, name }) => ({
-        name, // Use the audio name associated with the player
-        volume: player.volume,
-      })),
-    };
-    setFavorites((prevFavorites) => [...prevFavorites, newFavorite]); // Add to favorites
-    setModalVisible(false); // Close the modal
-  };
 
   useEffect(() => {
     const configureAudio = async () => {
@@ -169,35 +175,12 @@ export default function App(): React.JSX.Element {
           placeholder="Enter time (minutes)"
           placeholderTextColor="#9CA3AF"
         />
-        <TouchableOpacity style={styles.playerButton} onPress={stopAllPlayers}>
-          <Entypo name="controller-stop" size={50} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Favorites</Text>
-        <TouchableOpacity
-          style={styles.playerButton}
-          onPress={() => setModalVisible(true)} // Open the modal
-        >
-          <Entypo name="star" size={50} color="white" />
-        </TouchableOpacity>
-        {favorites.map((favorite, index) => (
-          <View key={index} style={styles.playerName}>
-            <Text style={{ color: "white", fontWeight: "bold" }}>
-              {favorite.name}
-            </Text>
-            {favorite.sounds.map((sound, soundIndex) => (
-              <Text key={soundIndex} style={{ color: "white" }}>
-                {sound.name} - Volume: {sound.volume.toFixed(2)}
-              </Text>
-            ))}
-          </View>
-        ))}
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.playerButton} onPress={stopAllPlayers}>
+            <Entypo name="controller-stop" size={50} color="white" />
+          </TouchableOpacity>
+        </View>
       </ScrollView>
-
-      <FavoriteModal
-        visible={modalVisible}
-        onSave={saveFavorite}
-        onCancel={() => setModalVisible(false)}
-      />
     </SafeAreaView>
   );
 }

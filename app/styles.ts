@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 const styles = StyleSheet.create({
   container: {
@@ -26,6 +26,10 @@ const styles = StyleSheet.create({
     color: "white",
     textAlign: "center",
     marginVertical: 24,
+    fontFamily: Platform.select({
+      android: "Inter_900Black",
+      ios: "Inter-Black",
+    }),
   },
   listContainer: {
     marginBottom: 16,
@@ -45,6 +49,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "white",
     marginBottom: 12,
+    fontFamily: Platform.select({
+      android: "Inter_900Black",
+      ios: "Inter-Black",
+    }),
   },
   playerButton: {
     alignSelf: "center",
@@ -80,6 +88,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     alignSelf: "center",
     paddingTop: 12,
+    fontFamily: Platform.select({
+      android: "Inter_900Black",
+      ios: "Inter-Black",
+    }),
   },
 });
 

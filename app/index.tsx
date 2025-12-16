@@ -55,17 +55,20 @@ function NoisePlayer({
   useEffect(() => {
     const loadVolume = async () => {
       try {
-        const savedVolume = await SecureStore.getItemAsync(sanitizeKey(audioSource.name));
+        const savedVolume = await SecureStore.getItemAsync(
+          sanitizeKey(audioSource.name)
+        );
         if (savedVolume !== null) {
           const volume = parseFloat(savedVolume);
           setSliderVolume(volume);
           player.volume = volume;
         }
       } catch (error) {
-        console.error('Error loading volume:', error);
+        console.error("Error loading volume:", error);
       }
     };
     loadVolume();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Save volume whenever it changes
@@ -215,7 +218,7 @@ export default function App(): React.JSX.Element {
           <Entypo name="controller-stop" size={50} color="white" />
           </TouchableOpacity>
         </View>
-          <Text style={styles.timeText}>{time} minutes</Text>
+          <Text style={styles.timeText} >{time} minutes</Text>
       </View>
     </SafeAreaView>
   );

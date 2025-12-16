@@ -11,9 +11,8 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import styles from "./styles";
@@ -26,6 +25,12 @@ const audioFiles: audio[] = [
   { name: "White Noise", path: require("../assets/sounds/white_noise.mp3") },
   { name: "Pink Noise", path: require("../assets/sounds/pink_noise.mp3") },
   { name: "Ocean Waves", path: require("../assets/sounds/ocean.mp3") },
+  { name: "Thunder and Rain", path: require("../assets/sounds/rain_thunder.mp3") },
+  { name: "Rain on Window", path: require("../assets/sounds/rain_window.mp3") },
+  { name: "Rain and Forest", path: require("../assets/sounds/rain_in_forest.mp3") },
+  { name: "Waterfall", path: require("../assets/sounds/waterfall.mp3") },
+  { name: "Forest", path: require("../assets/sounds/forest.mp3") },
+  { name: "Fire", path: require("../assets/sounds/fire.mp3") },
 ];
 
 function NoisePlayer({
@@ -41,11 +46,16 @@ function NoisePlayer({
   const status = useAudioPlayerStatus(player);
   const [sliderVolume, setSliderVolume] = useState(1);
 
+  // Sanitize the key for SecureStore (only alphanumeric, ".", "-", and "_")
+  const sanitizeKey = (name: string) => {
+    return `volume_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  };
+
   // Load saved volume on mount
   useEffect(() => {
     const loadVolume = async () => {
       try {
-        const savedVolume = await SecureStore.getItemAsync(`volume_${audioSource.name}`);
+        const savedVolume = await SecureStore.getItemAsync(sanitizeKey(audioSource.name));
         if (savedVolume !== null) {
           const volume = parseFloat(savedVolume);
           setSliderVolume(volume);
@@ -63,7 +73,7 @@ function NoisePlayer({
     setSliderVolume(value);
     player.volume = value;
     try {
-      await SecureStore.setItemAsync(`volume_${audioSource.name}`, value.toString());
+      await SecureStore.setItemAsync(sanitizeKey(audioSource.name), value.toString());
     } catch (error) {
       console.error('Error saving volume:', error);
     }
@@ -110,15 +120,41 @@ function NoisePlayer({
 }
 
 export default function App(): React.JSX.Element {
-  const [time, setTime] = useState(1);
-  const [inputValue, setInputValue] = useState("1"); // Input value as a string
+  const [time, setTime] = useState(30);
   const playersRef = useRef<{ player: AudioPlayer; name: string }[]>([]); // Reference to track all active players and their names
 
-  const handleTimeChange = (text: string) => {
-    setInputValue(text); // Update the input value immediately
-    const parsedTime = parseInt(text, 10);
-    if (!isNaN(parsedTime) && parsedTime >= 0) {
-      setTime(parsedTime); // Update the time state only if the input is valid
+  // Load saved time on mount
+  useEffect(() => {
+    const loadTime = async () => {
+      try {
+        const savedTime = await SecureStore.getItemAsync('player_time');
+        if (savedTime !== null) {
+          setTime(parseInt(savedTime, 10));
+        }
+      } catch (error) {
+        console.error('Error loading time:', error);
+      }
+    };
+    loadTime();
+  }, []);
+
+  const incrementTime = async () => {
+    const newTime = time + 30;
+    setTime(newTime);
+    try {
+      await SecureStore.setItemAsync('player_time', newTime.toString());
+    } catch (error) {
+      console.error('Error saving time:', error);
+    }
+  };
+
+  const decrementTime = async () => {
+    const newTime = Math.max(1, time - 30);
+    setTime(newTime);
+    try {
+      await SecureStore.setItemAsync('player_time', newTime.toString());
+    } catch (error) {
+      console.error('Error saving time:', error);
     }
   };
 
@@ -166,21 +202,21 @@ export default function App(): React.JSX.Element {
             </View>
           ))}
         </View>
-        <Text style={styles.title}>Set player time</Text>
-        <TextInput
-          style={styles.timeInput}
-          keyboardType="numeric"
-          value={inputValue}
-          onChangeText={handleTimeChange}
-          placeholder="Enter time (minutes)"
-          placeholderTextColor="#9CA3AF"
-        />
+      </ScrollView>
+      <View style={styles.stickyBottomBar}>
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.playerButton} onPress={stopAllPlayers}>
-            <Entypo name="controller-stop" size={50} color="white" />
+        <TouchableOpacity style={styles.playerButton} onPress={decrementTime}>
+          <Entypo name="minus" size={50} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.playerButton} onPress={incrementTime}>
+          <Entypo name="plus" size={50} color="white" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.playerButton} onPress={stopAllPlayers}>
+          <Entypo name="controller-stop" size={50} color="white" />
           </TouchableOpacity>
         </View>
-      </ScrollView>
+          <Text style={styles.timeText}>{time} minutes</Text>
+      </View>
     </SafeAreaView>
   );
 }

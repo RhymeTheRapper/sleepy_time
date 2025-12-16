@@ -6,7 +6,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#111827",
   },
   scrollViewContent: {
-    padding: 16,
+    paddingTop: 16,
+    paddingRight: 16,
+    paddingBottom: 130,
+    paddingLeft: 16,
   },
   timeInput: {
     height: 40,
@@ -54,10 +57,29 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 40,
   },
+  stickyBottomBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#1F2937",
+    paddingTop: 12,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#374151",
+  },
   buttonRow: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginVertical: 16,
+    alignItems: "center",
+  },
+  timeText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+    alignSelf: "center",
+    paddingTop: 12,
   },
 });
 

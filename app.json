@@ -7,7 +7,6 @@
     "icon": "./assets/images/app_icon.png",
     "scheme": "sleepytime",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
@@ -15,12 +14,11 @@
       "adaptiveIcon": {
         "monochromeImage": "./assets/images/app_icon.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.rhymetherapper.sleepy_time"
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -43,9 +41,12 @@
       [
         "expo-font",
         {
-          "fonts": ["node_modules/@expo-google-fonts/inter/900Black/Inter_900Black.ttf"]
+          "fonts": [
+            "node_modules/@expo-google-fonts/inter/900Black/Inter_900Black.ttf"
+          ]
         }
-      ]
+      ],
+      "react-native-audio-api"
     ],
     "experiments": {
       "typedRoutes": true,

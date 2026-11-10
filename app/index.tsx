@@ -1,12 +1,12 @@
 import Entypo from "@expo/vector-icons/Entypo";
 import Slider from "@react-native-community/slider";
 import {
-  AudioPlayer,
+  AudioSource,
   setAudioModeAsync,
   useAudioPlayer,
   useAudioPlayerStatus,
 } from "expo-audio";
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from "react";
 import {
   ScrollView,
@@ -15,38 +15,79 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { NoiseColor, useNoisePlayer } from "../assets/sounds/noise";
 import styles from "./styles";
 
-type audio = { name: string; path: any };
+// Recorded sounds stream from a file; noise colors are generated on the device
+type audio = { name: string; path: AudioSource } | { name: string; noise: NoiseColor };
+
+// The controls every player exposes, whatever is producing the sound
+type Playback = {
+  playing: boolean;
+  play: () => void;
+  pause: () => void;
+  setVolume: (value: number) => void;
+};
+
+type PlayerProps = {
+  name: string;
+  time: number;
+  registerPlayer: (name: string, pause: () => void) => void;
+};
 
 const audioFiles: audio[] = [
-  { name: "Bruh Sound Effect", path: require("../assets/sounds/bruh.mp3") },
-  { name: "Brown Noise", path: require("../assets/sounds/brown_noise.mp3") },
-  { name: "White Noise", path: require("../assets/sounds/white_noise.mp3") },
-  { name: "Pink Noise", path: require("../assets/sounds/pink_noise.mp3") },
-  { name: "Ocean Waves", path: require("../assets/sounds/ocean.mp3") },
-  { name: "Thunder and Rain", path: require("../assets/sounds/rain_thunder.mp3") },
-  { name: "Rain on Window", path: require("../assets/sounds/rain_window.mp3") },
-  { name: "Rain and Forest", path: require("../assets/sounds/rain_in_forest.mp3") },
-  { name: "Waterfall", path: require("../assets/sounds/waterfall.mp3") },
-  { name: "Forest", path: require("../assets/sounds/forest.mp3") },
-  { name: "Fire", path: require("../assets/sounds/fire.mp3") },
+  { name: "Bruh Sound Effect", path: "https://storage.googleapis.com/sleepytimesounds/bruh.mp3" },
+  { name: "Brown Noise", noise: "brown" },
+  { name: "White Noise", noise: "white" },
+  { name: "Pink Noise", noise: "pink" },
+  { name: "Ocean Waves", path: "https://storage.googleapis.com/sleepytimesounds/ocean.mp3" },
+  { name: "Thunder and Rain", path: "https://storage.googleapis.com/sleepytimesounds/rain_thunder.mp3" },
+  { name: "Rain on Window", path: "https://storage.googleapis.com/sleepytimesounds/rain_window.mp3" },
+  { name: "Rain and Forest", path: "https://storage.googleapis.com/sleepytimesounds/rain_in_forest.mp3" },
+  { name: "Waterfall", path: "https://storage.googleapis.com/sleepytimesounds/waterfall.mp3" },
+  { name: "Forest", path: "https://storage.googleapis.com/sleepytimesounds/forest.mp3" },
+  { name: "Fire", path: "https://storage.googleapis.com/sleepytimesounds/fire.mp3" },
 ];
 
+function useFilePlayer(path: AudioSource): Playback {
+  const player = useAudioPlayer(path);
+  const status = useAudioPlayerStatus(player);
+  // expo-audio players are controlled by setting their properties
+  /* eslint-disable react-hooks/immutability */
+  return {
+    playing: status.timeControlStatus === "playing",
+    play: () => {
+      player.loop = true;
+      player.play();
+    },
+    pause: () => {
+      player.loop = false;
+      player.pause();
+    },
+    setVolume: (value) => {
+      player.volume = value;
+    },
+  };
+  /* eslint-enable react-hooks/immutability */
+}
+
+function FilePlayer({ path, ...props }: PlayerProps & { path: AudioSource }): React.JSX.Element {
+  return <NoisePlayer playback={useFilePlayer(path)} {...props} />;
+}
+
+function GeneratedNoisePlayer({ noise, ...props }: PlayerProps & { noise: NoiseColor }): React.JSX.Element {
+  return <NoisePlayer playback={useNoisePlayer(noise)} {...props} />;
+}
+
 function NoisePlayer({
-  audioSource,
+  name,
   time,
   registerPlayer,
-}: {
-  audioSource: audio;
-  time: number;
-  registerPlayer: (player: AudioPlayer, audioName: string) => void;
-}): React.JSX.Element {
-  const player = useAudioPlayer(audioSource.path);
-  const status = useAudioPlayerStatus(player);
+  playback,
+}: PlayerProps & { playback: Playback }): React.JSX.Element {
   const [sliderVolume, setSliderVolume] = useState(1);
 
-  // Sanitize the key for SecureStore (only alphanumeric, ".", "-", and "_")
+  // Turn the sound name into a storage key (only alphanumeric, ".", "-", and "_")
   const sanitizeKey = (name: string) => {
     return `volume_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   };
@@ -55,13 +96,11 @@ function NoisePlayer({
   useEffect(() => {
     const loadVolume = async () => {
       try {
-        const savedVolume = await SecureStore.getItemAsync(
-          sanitizeKey(audioSource.name)
-        );
+        const savedVolume = await AsyncStorage.getItem(sanitizeKey(name));
         if (savedVolume !== null) {
           const volume = parseFloat(savedVolume);
           setSliderVolume(volume);
-          player.volume = volume;
+          playback.setVolume(volume);
         }
       } catch (error) {
         console.error("Error loading volume:", error);
@@ -74,9 +113,9 @@ function NoisePlayer({
   // Save volume whenever it changes
   const handleVolumeChange = async (value: number) => {
     setSliderVolume(value);
-    player.volume = value;
+    playback.setVolume(value);
     try {
-      await SecureStore.setItemAsync(sanitizeKey(audioSource.name), value.toString());
+      await AsyncStorage.setItem(sanitizeKey(name), value.toString());
     } catch (error) {
       console.error('Error saving volume:', error);
     }
@@ -84,31 +123,20 @@ function NoisePlayer({
 
   // Register the player when it starts playing
   const handlePlay = () => {
-    player.loop = true;
-    player.play();
-    registerPlayer(player, audioSource.name); // Pass the player and audio name
-    setTimeout(() => {
-      player.loop = false;
-      player.pause();
-    }, time);
+    playback.play();
+    registerPlayer(name, playback.pause);
+    setTimeout(playback.pause, time);
   };
 
   return (
     <View style={styles.playerContainer}>
-      {(status.timeControlStatus === "waiting" ||
-        status.timeControlStatus === "paused") && (
+      {playback.playing ? (
+        <TouchableOpacity style={styles.playerButton} onPress={playback.pause}>
+          <Entypo name="controller-paus" size={50} color="white" />
+        </TouchableOpacity>
+      ) : (
         <TouchableOpacity style={styles.playerButton} onPress={handlePlay}>
           <Entypo name="controller-play" size={50} color="white" />
-        </TouchableOpacity>
-      )}
-      {status.timeControlStatus === "playing" && (
-        <TouchableOpacity
-          style={styles.playerButton}
-          onPress={() => {
-            player.pause();
-          }}
-        >
-          <Entypo name="controller-paus" size={50} color="white" />
         </TouchableOpacity>
       )}
       <Slider
@@ -124,13 +152,13 @@ function NoisePlayer({
 
 export default function App(): React.JSX.Element {
   const [time, setTime] = useState(30);
-  const playersRef = useRef<{ player: AudioPlayer; name: string }[]>([]); // Reference to track all active players and their names
+  const playersRef = useRef<{ name: string; pause: () => void }[]>([]); // Reference to track all active players and their names
 
   // Load saved time on mount
   useEffect(() => {
     const loadTime = async () => {
       try {
-        const savedTime = await SecureStore.getItemAsync('player_time');
+        const savedTime = await AsyncStorage.getItem('player_time');
         if (savedTime !== null) {
           setTime(parseInt(savedTime, 10));
         }
@@ -145,34 +173,31 @@ export default function App(): React.JSX.Element {
     const newTime = time + 30;
     setTime(newTime);
     try {
-      await SecureStore.setItemAsync('player_time', newTime.toString());
+      await AsyncStorage.setItem('player_time', newTime.toString());
     } catch (error) {
       console.error('Error saving time:', error);
     }
   };
 
   const decrementTime = async () => {
-    const newTime = Math.max(1, time - 30);
+    const newTime = Math.max(10, time - 30);
     setTime(newTime);
     try {
-      await SecureStore.setItemAsync('player_time', newTime.toString());
+      await AsyncStorage.setItem('player_time', newTime.toString());
     } catch (error) {
       console.error('Error saving time:', error);
     }
   };
 
-  const registerPlayer = (player: AudioPlayer, audioName: string) => {
-    if (!playersRef.current.some((p) => p.player === player)) {
-      playersRef.current.push({ player, name: audioName }); // Add the player and its name to the list
+  const registerPlayer = (name: string, pause: () => void) => {
+    if (!playersRef.current.some((p) => p.name === name)) {
+      playersRef.current.push({ name, pause }); // Add the player and its name to the list
     }
   };
 
   const stopAllPlayers = () => {
-    playersRef.current
-      .filter((current) => current.player.playing)
-      .forEach((current) => {
-        current.player.pause(); // Stop each player
-      });
+    // Pausing a player that has already stopped does nothing
+    playersRef.current.forEach((current) => current.pause());
     playersRef.current = []; // Clear the list after `stopping all players
   };
 
@@ -191,17 +216,26 @@ export default function App(): React.JSX.Element {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <Text style={styles.title}>Noise Machine</Text>
+        <Text style={styles.title}>Sleepy Time</Text>
         <View style={styles.listContainer}>
           {audioFiles.map((audio, index) => (
             <View key={index}>
               <Text style={styles.playerName}>{audio.name}</Text>
-              <NoisePlayer
-                key={index}
-                audioSource={audio}
-                time={time * 60000}
-                registerPlayer={(player) => registerPlayer(player, audio.name)}
-              />
+              {"noise" in audio ? (
+                <GeneratedNoisePlayer
+                  name={audio.name}
+                  noise={audio.noise}
+                  time={time * 60000}
+                  registerPlayer={registerPlayer}
+                />
+              ) : (
+                <FilePlayer
+                  name={audio.name}
+                  path={audio.path}
+                  time={time * 60000}
+                  registerPlayer={registerPlayer}
+                />
+              )}
             </View>
           ))}
         </View>

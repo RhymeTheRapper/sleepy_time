@@ -38,6 +38,3 @@ coverage/
 # Documentation
 README.md
 docs/
-
-# LFS tracked files (downloaded during build)
-assets/sounds/
